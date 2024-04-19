@@ -1,24 +1,15 @@
 import { Router } from "express";
-import {userRegister, userLogin, userLogout, findAll, deleteUser} from '../controllers/user.controller.js';
+import {loginDashbord, registerDashbord, profileDashbord, userRegister, userLogin, userLogout, findAll, deleteUser} from '../controllers/user.controller.js';
 import { verifyJWT, isLoggedOut } from "../middlewares/auth.middleware.js";
 
 export const userRouter = Router();
 
 // login route with a loggedOut Middleware
-userRouter.get("/", isLoggedOut, (req, res)=>{
-    // res.send("Hello World")
-    const alert = req.flash("errorAlert");
-    res.render("login", { errorAlert: alert? alert[0] : "" });
-});
+userRouter.get("/", isLoggedOut, loginDashbord);
 // register route with a loggedOut Middleware
-userRouter.get("/register", isLoggedOut, (req, res)=>{
-    const alert = req.flash("errorAlert");
-    res.render("register", { errorAlert: alert? alert[0] : "" });
-});
+userRouter.get("/register", isLoggedOut, registerDashbord);
 // profile route with loggedIn Middleware
-userRouter.get("/profile", verifyJWT, (req, res)=>{
-    res.render("profile");
-})
+userRouter.get("/profile", verifyJWT, profileDashbord)
 
 
 // userRegister call route
@@ -29,5 +20,5 @@ userRouter.post("/userlogin", userLogin);
 userRouter.get("/userlogout", verifyJWT, userLogout);
 
 
-userRouter.get("/find", findAll);
+userRouter.get("/find", verifyJWT, findAll);
 userRouter.post("/delete", deleteUser);

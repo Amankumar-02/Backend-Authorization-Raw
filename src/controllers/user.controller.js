@@ -15,6 +15,24 @@ const generateAccessToken = async(userId)=>{
     }
 };
 
+export const loginDashbord = AsyncHandler((req, res)=>{
+    // res.send("Hello World")
+    const {errorAlert} = req.flash();
+    res.render("login", { errorAlert: errorAlert ||"" });
+});
+export const registerDashbord = AsyncHandler((req, res)=>{
+    const {errorAlert} = req.flash();
+    res.render("register", { errorAlert: errorAlert || "" });
+});
+export const profileDashbord = AsyncHandler((req, res)=>{
+    const { errorAlert, findAllData, deleteData } = req.flash();
+    res.render("profile", {
+        errorAlert: errorAlert? errorAlert[0] : "", 
+        data: req.user, 
+        findData: findAllData || null, 
+        deleteData: deleteData || null});
+});
+
 export const userRegister = AsyncHandler(async(req, res)=>{
     const {username, email, fullname, password} = req.body;
     if(!(username && email && fullname && password)){
@@ -121,17 +139,33 @@ export const userLogout = AsyncHandler(async(req, res)=>{
 });
 
 export const findAll = AsyncHandler(async(req, res)=>{
-    const user = await User.find().select("-password");
-    return res.status(200).json(new ApiResponse(200, user, "All Users"));
+    const ownUsername = req.user;
+    const users = await User.find().select("-password -_id -createdAt -updatedAt -__v");
+    // return res.status(200).json(new ApiResponse(200, user, "All Users"));
+    const filteredUsers  = users.filter(user=>user.username !== ownUsername.username);
+    req.flash("findAllData", filteredUsers);
+    res.redirect("/profile");
 });
 
 export const deleteUser = AsyncHandler(async(req, res)=>{
-    const {username_email} = req.body;
+    const {email_username} = req.body;
+    if(!email_username){
+        // res.status(400).json(new ApiError(400, "Field are required"));
+        req.flash("errorAlert", "Field are required");
+        return res.redirect("/profile");
+    };
     const user = await User.findOneAndDelete({
         $or: [{
-            username: username_email},
-            {email : username_email,
+            username: email_username},
+            {email : email_username,
         }]
     }).select("-password");
-    return res.status(200).json(new ApiResponse(200, user, "User is removed SuccessFully"));
+    if(!user){
+        req.flash("errorAlert", "User not found");
+        res.redirect("/profile");
+    }else{
+        // return res.status(200).json(new ApiResponse(200, user, "User is removed SuccessFully"));
+        req.flash("deleteData", user);
+        res.redirect("/profile");
+    }
 });
