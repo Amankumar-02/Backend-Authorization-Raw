@@ -25,12 +25,18 @@ export const registerDashbord = AsyncHandler((req, res)=>{
     res.render("register", { errorAlert: errorAlert || "" });
 });
 export const profileDashbord = AsyncHandler((req, res)=>{
-    const { errorAlert, findAllData, deleteData } = req.flash();
+    const { errorAlertDelete, findAllData, deleteData, errorAlertPassword, successAlertPassword, errorAlertUpdateDetails, successAlertUpdateDetails } = req.flash();
+    // console.log(findAllData)
     res.render("profile", {
-        errorAlert: errorAlert? errorAlert[0] : "", 
+        errorAlertDelete: errorAlertDelete || "", 
         data: req.user, 
-        findData: findAllData || null, 
-        deleteData: deleteData || null});
+        findAllData: findAllData || null, 
+        deleteData: deleteData || null,
+        errorAlertPassword: errorAlertPassword || "",
+        successAlertPassword: successAlertPassword || "",
+        errorAlertUpdateDetails: errorAlertUpdateDetails || "",
+        successAlertUpdateDetails: successAlertUpdateDetails || "",
+    });
 });
 
 export const userRegister = AsyncHandler(async(req, res)=>{
@@ -140,18 +146,23 @@ export const userLogout = AsyncHandler(async(req, res)=>{
 
 export const findAll = AsyncHandler(async(req, res)=>{
     const ownUsername = req.user;
-    const users = await User.find().select("-password -_id -createdAt -updatedAt -__v");
+    const users = await User.find().select("-password -_id -createdAt -updatedAt -__v -fullname -email");
     // return res.status(200).json(new ApiResponse(200, user, "All Users"));
     const filteredUsers  = users.filter(user=>user.username !== ownUsername.username);
-    req.flash("findAllData", filteredUsers);
-    res.redirect("/profile");
+    if(filteredUsers.length<=0){
+        req.flash("findAllData", "No other User");
+        res.redirect("/profile");
+    }else{
+        req.flash("findAllData", filteredUsers);
+        res.redirect("/profile");
+    }
 });
 
 export const deleteUser = AsyncHandler(async(req, res)=>{
     const {email_username} = req.body;
     if(!email_username){
         // res.status(400).json(new ApiError(400, "Field are required"));
-        req.flash("errorAlert", "Field are required");
+        req.flash("errorAlertDelete", "Field are required");
         return res.redirect("/profile");
     };
     const user = await User.findOneAndDelete({
@@ -168,4 +179,86 @@ export const deleteUser = AsyncHandler(async(req, res)=>{
         req.flash("deleteData", user);
         res.redirect("/profile");
     }
+});
+
+export const changeCurrentPassword = AsyncHandler(async(req, res)=>{
+    const {oldPassword, newPassword, confirmPassword} = req.body;
+    // if any one is not present
+    // if(!(newPassword || newPassword || confirmPassword)){
+    // all three are necessory to present
+    if(!(newPassword && newPassword && confirmPassword)){
+        // res.status(401).json(new ApiError(401, "All fields are required"));
+        req.flash("errorAlertPassword", "All fields are required");
+        res.redirect("/profile");
+    }
+    if((newPassword || confirmPassword).length<8){
+        // res.status(401).json(new ApiError(401, "password must be above 8 digits"));
+        req.flash("errorAlertPassword", "password must be above 8 digits");
+        res.redirect("/profile");
+    };
+    if(newPassword !== confirmPassword){
+        // res.status(401).json(new ApiError(401, "New password does not match"));
+        req.flash("errorAlertPassword", "New password does not match");
+        res.redirect("/profile");
+    };
+    const userData = await User.findById(req.user?._id);
+    const isGetPasswordCorrect = await userData.isPasswordCorrect(oldPassword);
+    if(!isGetPasswordCorrect){
+        // res.status(400).json(new ApiError(400, "old password does not match"));
+        req.flash("errorAlertPassword", "old password does not match");
+        res.redirect("/profile");
+    };
+    userData.password = newPassword;
+    await userData.save({validateBeforeSave: false});
+    // return res.status(200).json(new ApiResponse(200, {}, "Password changed successfully"))
+    req.flash("successAlertPassword", "Password is changes successfully");
+    res.redirect("/profile");
+});
+
+export const updateAccountDetails = AsyncHandler(async(req, res)=>{
+    const {username, email, fullname} = req.body;
+    if(!(username && email && fullname)){
+        // res.status(400).json(new ApiError(400, "All fields are required"));
+        req.flash("errorAlertUpdateDetails", "All fields are required");
+        res.redirect("/profile");
+    };
+    if(!email.includes("@")){
+        // res.status(400).json(new ApiError(400, "Email is invalid"));
+        req.flash("errorAlertUpdateDetails", "Email is invalid");
+        res.redirect("/profile");
+    };
+    if(username.includes(" ") || email.includes(" ")){
+        // res.status(401).json(new ApiError(401, "remove spaces in username and email"));
+        req.flash("errorAlertUpdateDetails", "remove spaces in username and email");
+        res.redirect("/profile");
+    };
+    if(email !== email.toLowerCase() || username !== username.toLowerCase()){
+        // res.status(400).json(new ApiError(400, "only lowerCase is allowed in username and email"));
+        req.flash("errorAlertUpdateDetails", "only lowerCase is allowed in username and email");
+        return res.redirect("/profile");
+    };
+    const exists = await User.findOne({
+        $or: [{username}, {email}]
+    });
+    if(exists){
+        // res.status(401).json(new ApiError(401, "only lowerCase is allowed in username and email"));
+        req.flash("errorAlertUpdateDetails", "This username or email is already taken");
+        return res.redirect("/profile");
+    };
+    const userData = await User.findByIdAndUpdate(
+        req.user?._id,
+        {
+            $set:{
+                username,
+                email,
+                fullname,
+            }
+        },
+        {
+            new : true,
+        }
+    ).select('-password');
+    // return res.status(200).json(new ApiResponse(200, userData, "Account details update successfully"));
+    req.flash("successAlertUpdateDetails", "Account details update successfully");
+    res.redirect("/profile");
 });

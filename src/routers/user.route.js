@@ -1,5 +1,5 @@
 import { Router } from "express";
-import {loginDashbord, registerDashbord, profileDashbord, userRegister, userLogin, userLogout, findAll, deleteUser} from '../controllers/user.controller.js';
+import {loginDashbord, registerDashbord, profileDashbord, userRegister, userLogin, userLogout, findAll, deleteUser, changeCurrentPassword, updateAccountDetails} from '../controllers/user.controller.js';
 import { verifyJWT, isLoggedOut } from "../middlewares/auth.middleware.js";
 
 export const userRouter = Router();
@@ -22,3 +22,5 @@ userRouter.get("/userlogout", verifyJWT, userLogout);
 
 userRouter.get("/find", verifyJWT, findAll);
 userRouter.post("/delete", deleteUser);
+userRouter.post("/changeCurrent", verifyJWT, changeCurrentPassword);
+userRouter.post("/updatedetails", verifyJWT, updateAccountDetails);
